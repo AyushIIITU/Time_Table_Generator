@@ -34,7 +34,7 @@ html, body {
 }
 
 body {
-  background:url('../img/loginbg.jpg') center center / auto 100% no-repeat;
+  background:white;
   font-size: 14px;
   font-family: 'Source Sans Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-weight: 400;
