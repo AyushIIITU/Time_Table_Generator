@@ -196,57 +196,61 @@ class Schedule:
                     self._numberOfConflicts += 1
         return 1 / (self._numberOfConflicts + 1)
 
+import random
 
 class GeneticAlgorithm:
     def evolve(self, population):
-        return self._mutatePopulation(self._crossoverPopulation(population))
+        """Evolve the population by performing crossover and mutation."""
+        return self._mutate_population(self._crossover_population(population))
 
-    def _crossoverPopulation(self, popula):
-        crossoverPopula = Population(0)
-        for i in range(NUMB_OF_ELITE_SCHEDULES):
-            crossoverPopula.getSchedules().append(popula.getSchedules()[i])
+    def _crossover_population(self, population):
+        """Perform crossover to produce a new population."""
+        crossover_population = Population(0)
+        schedules = population.getSchedules()
 
+        # Retain elite schedules
+        crossover_population.getSchedules().extend(schedules[:NUMB_OF_ELITE_SCHEDULES])
+
+        # Perform crossover for the rest of the population
+        for _ in range(NUMB_OF_ELITE_SCHEDULES, POPULATION_SIZE):
+            schedule_x = self._tournament_population(population)
+            schedule_y = self._tournament_population(population)
+            crossover_population.getSchedules().append(
+                self._crossover_schedule(schedule_x, schedule_y)
+            )
+        return crossover_population
+
+    def _mutate_population(self, population):
+        """Apply mutation to the population."""
         for i in range(NUMB_OF_ELITE_SCHEDULES, POPULATION_SIZE):
-            scheduleX = self._tournamentPopulation(popula)
-            scheduleY = self._tournamentPopulation(popula)
-
-            crossoverPopula.getSchedules().append(
-                self._crossoverSchedule(scheduleX, scheduleY))
-
-        return crossoverPopula
-
-    def _mutatePopulation(self, population):
-        for i in range(NUMB_OF_ELITE_SCHEDULES, POPULATION_SIZE):
-            self._mutateSchedule(population.getSchedules()[i])
+            self._mutate_schedule(population.getSchedules()[i])
         return population
 
-    def _crossoverSchedule(self, scheduleX, scheduleY):
-        crossoverSchedule = Schedule().initialize()
-        for i in range(0, len(crossoverSchedule.getClasses())):
-            if random.random() > 0.5:
-                crossoverSchedule.getClasses()[i] = scheduleX.getClasses()[i]
-            else:
-                crossoverSchedule.getClasses()[i] = scheduleY.getClasses()[i]
-        return crossoverSchedule
+    def _crossover_schedule(self, schedule_x, schedule_y):
+        """Perform single-point crossover between two schedules."""
+        crossover_schedule = Schedule().initialize()
+        classes = crossover_schedule.getClasses()
+        x_classes = schedule_x.getClasses()
+        y_classes = schedule_y.getClasses()
 
-    def _mutateSchedule(self, mutateSchedule):
-        schedule = Schedule().initialize()
-        for i in range(len(mutateSchedule.getClasses())):
-            if MUTATION_RATE > random.random():
-                mutateSchedule.getClasses()[i] = schedule.getClasses()[i]
-        return mutateSchedule
+        for i in range(len(classes)):
+            classes[i] = x_classes[i] if random.random() > 0.5 else y_classes[i]
+        return crossover_schedule
 
-    def _tournamentPopulation(self, popula):
-        tournamentPopula = Population(0)
+    def _mutate_schedule(self, mutate_schedule):
+        """Mutate the given schedule based on mutation rate."""
+        new_schedule = Schedule().initialize()
+        mutate_classes = mutate_schedule.getClasses()
+        new_classes = new_schedule.getClasses()
 
-        for i in range(0, TOURNAMENT_SELECTION_SIZE):
-            tournamentPopula.getSchedules().append(
-                popula.getSchedules()[random.randrange(0, POPULATION_SIZE)])
+        for i in range(len(mutate_classes)):
+            if random.random() < MUTATION_RATE:
+                mutate_classes[i] = new_classes[i]
 
-        # tournamentPopula.getSchedules().sort(key=lambda x: x.getFitness(),reverse=True)
-        # return tournamentPopula
-        return max(tournamentPopula.getSchedules(), key=lambda x: x.getFitness())
-
+    def _tournament_population(self, population):
+        """Select the best schedule from a tournament subset."""
+        schedules = random.sample(population.getSchedules(), TOURNAMENT_SELECTION_SIZE)
+        return max(schedules, key=lambda x: x.getFitness())
 
 
 def context_manager(schedule):
