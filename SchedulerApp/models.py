@@ -38,6 +38,8 @@ DAYS_OF_WEEK = (
 class Room(models.Model):
     r_number = models.CharField(max_length=66, unique=True)
     seating_capacity = models.IntegerField(default=0)
+    is_lab = models.BooleanField(default=False)
+    associated_courses = models.ManyToManyField('Course', blank=True)
 
     def __str__(self):
         return self.r_number

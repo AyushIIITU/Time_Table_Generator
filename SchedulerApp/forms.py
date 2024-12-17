@@ -28,7 +28,7 @@ class RoomForm(ModelForm):
     class Meta:
         model = Room
         labels = {'r_number': 'Room Number'}
-        fields = ['r_number', 'seating_capacity']
+        fields = ['r_number', 'seating_capacity', 'is_lab', 'associated_courses']
     def clean_r_number(self):
         r_number = self.cleaned_data.get('r_number')
         if Room.objects.filter(r_number=r_number).exists():
