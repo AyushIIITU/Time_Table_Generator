@@ -300,11 +300,6 @@ def timetable(request):
         population.getSchedules().sort(key=lambda x: x.getFitness(), reverse=True)
         schedule = population.getSchedules()[0]
         VARS['generationNum'] += 1
-
-        # for c in schedule.getClasses():
-        #     print(c.course.course_name, c.meeting_time)
-        print(f'\n> Generation #{VARS["generationNum"]}, Fitness: {schedule.getFitness()}')
-
     return render(
         request, 'timetable.html', {
             'schedule': schedule.getClasses(),
