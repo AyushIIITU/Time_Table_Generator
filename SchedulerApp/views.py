@@ -54,13 +54,14 @@ class Data:
 
 
 class Class:
-    def __init__(self, dept, section, course):
+    def __init__(self, dept, section, course, course_type):
         self.department = dept
         self.course = course
         self.instructor = None
         self.meeting_time = None
         self.room = None
         self.section = section
+        self.course_type = course_type
 
     def get_id(self):
         return self.section_id
@@ -111,11 +112,27 @@ class Schedule:
             self._isFitnessChanged = False
         return self._fitness
 
-    def addCourse(self, data, course, courses, dept, section):
-        newClass = Class(dept, section.section_id, course)
+    def addCourse(self, data, course, courses, dept, section, course_type):
+        newClass = Class(dept, section.section_id, course, course_type)
 
         available_meeting_times = list(data.get_meetingTimes())
-        
+        # if course_type == 'p':
+        #     # Find two continuous meeting times
+        #     # for i in range(len(available_meeting_times) - 1):
+        #     #     if available_meeting_times[i].is_continuous_with(available_meeting_times[i + 1]):
+        #     #         newClass.set_meetingTime(available_meeting_times[i])
+        #     #         newClass.set_meetingTime(available_meeting_times[i + 1])
+        #     #         available_meeting_times.remove(available_meeting_times[i])
+        #     #         available_meeting_times.remove(available_meeting_times[i])
+        #     #         break
+        #     #     else:
+        #     #     # If no continuous meeting times are found, assign random times
+        #     #         mt1 = available_meeting_times.pop(random.randrange(0, len(available_meeting_times)))
+        #     #         mt2 = available_meeting_times.pop(random.randrange(0, len(available_meeting_times)))
+        #     #         newClass.set_meetingTime(mt1)
+        #     #         newClass.set_meetingTime(mt2)
+        # else:
+            # Assign a single meeting time for lectures and tutorials
         for existing_class in self._classes:
             if existing_class.meeting_time in available_meeting_times:
                 available_meeting_times.remove(existing_class.meeting_time)
@@ -124,7 +141,6 @@ class Schedule:
             newClass.set_meetingTime(available_meeting_times[random.randrange(0, len(available_meeting_times))])
         else:
             newClass.set_meetingTime(data.get_meetingTimes()[random.randrange(0, len(data.get_meetingTimes()))])
-
 
         available_rooms = list(data.get_rooms())
         for existing_class in self._classes:
@@ -138,8 +154,7 @@ class Schedule:
             newClass.set_room(data.get_rooms()[random.randrange(0, len(data.get_rooms()))])
 
         crs_inst = course.instructors.all()
-        newClass.set_instructor(
-            crs_inst[random.randrange(0, len(crs_inst))])
+        newClass.set_instructor(crs_inst[random.randrange(0, len(crs_inst))])
 
         self._classes.append(newClass)
 
@@ -154,11 +169,18 @@ class Schedule:
 
             courses = dept.courses.all()
             for course in courses:
-                for i in range(n // len(courses)):
-                    self.addCourse(data, course, courses, dept, section)
+                # Assign lectures
+                for _ in range(course.number_of_lectures):
+                    self.addCourse(data, course, courses, dept, section, 'l')
 
-            for course in courses.order_by('?')[:(n % len(courses))]:
-                self.addCourse(data, course, courses, dept, section)
+                # Assign tutorials
+                for _ in range(course.number_of_tutorials):
+                    self.addCourse(data, course, courses, dept, section, 't')
+
+                # Assign labs
+                for _ in range(course.number_of_labs):
+                    self.addCourse(data, course, courses, dept, section, 'p')
+                    self.addCourse(data, course, courses, dept, section, 'p')
 
         return self
 
@@ -166,19 +188,44 @@ class Schedule:
         self._numberOfConflicts = 0
         classes = self.getClasses()
 
+        course_day_count = {}
+        course_day_type_count = {}
+
         for i in range(len(classes)):
-            # Seating capacity less them course student
+            course_name = classes[i].course.course_name
+            day = str(classes[i].meeting_time).split()[1]
+            course_type = classes[i].course_type
+
+            # Initialize dictionaries
+            if course_name not in course_day_count:
+                course_day_count[course_name] = {}
+            if day not in course_day_count[course_name]:
+                course_day_count[course_name][day] = 0
+
+            if course_name not in course_day_type_count:
+                course_day_type_count[course_name] = {}
+            if day not in course_day_type_count[course_name]:
+                course_day_type_count[course_name][day] = {'l': 0, 't': 0, 'p': 0}
+
+            # Increment counts
+            course_day_count[course_name][day] += 1
+            course_day_type_count[course_name][day][course_type] += 1
+
+            # Check constraints
+            if course_day_count[course_name][day] > 2:
+                self._numberOfConflicts += 1
+            if course_day_type_count[course_name][day]['p'] > 1:
+                self._numberOfConflicts += 1
+            if course_day_type_count[course_name][day]['l'] > 2:
+                self._numberOfConflicts += 1
+            if course_day_type_count[course_name][day]['t'] > 2:
+                self._numberOfConflicts += 1
+
+            # Seating capacity less than course student
             if classes[i].room.seating_capacity < int(classes[i].course.max_numb_students):
                 self._numberOfConflicts += 1
 
-            # print(classes[i].course.course_name, classes[i].meeting_time, classes[i].section, classes[i].room, classes[i].instructor)
-
             for j in range(i + 1, len(classes)):
-                # Same course on same day
-                if (classes[i].course.course_name == classes[j].course.course_name and \
-                    str(classes[i].meeting_time).split()[1] == str(classes[j].meeting_time).split()[1]):
-                    self._numberOfConflicts += 1
-
                 # Teacher with lectures in different timetable at same time
                 if (classes[i].section != classes[j].section and \
                     classes[i].meeting_time == classes[j].meeting_time and \
@@ -190,10 +237,11 @@ class Schedule:
                     classes[i].meeting_time == classes[j].meeting_time):
                     self._numberOfConflicts += 1
 
-                 # Room conflict
+                # Room conflict
                 if (classes[i].meeting_time == classes[j].meeting_time and \
                     classes[i].room == classes[j].room):
                     self._numberOfConflicts += 1
+
         return 1 / (self._numberOfConflicts + 1)
 
 import random

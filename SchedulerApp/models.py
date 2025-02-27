@@ -64,11 +64,14 @@ class MeetingTime(models.Model):
         return f'{self.pid} {self.day} {self.time}'
     
     def is_continuous_with(self, other):
-        # Assuming TIME_SLOTS are ordered and continuous
-        time_slots = [slot[0] for slot in TIME_SLOTS]
-        current_index = time_slots.index(self.time)
-        next_index = (current_index + 1) % len(time_slots)
-        return self.day == other.day and time_slots[next_index] == other.time
+        if self.day != other.day:
+            return False
+        def parse_time_slot(slot):
+            start, end = slot.split(' - ')
+            return start, end
+        current_start, current_end = parse_time_slot(self.time)
+        other_start, other_end = parse_time_slot(other.time)
+        return current_end == other_start
 
 class Course(models.Model):
     course_number = models.CharField(max_length=5, primary_key=True)
@@ -83,6 +86,10 @@ class Course(models.Model):
         return f'{self.course_number} {self.course_name}'
 
 
+
+    def __str__(self):
+        return self.name
+    
 class Department(models.Model):
     dept_name = models.CharField(max_length=50)
     courses = models.ManyToManyField(Course)
@@ -115,7 +122,6 @@ class Section(models.Model):
                                    on_delete=models.CASCADE,
                                    blank=True,
                                    null=True)
-
     def set_room(self, room):
         section = Section.objects.get(pk=self.section_id)
         section.room = room
@@ -132,24 +138,19 @@ class Section(models.Model):
         section.save()
     def num_class_in_week(self):
         total_lectures = 0
-        total_tutorials = 0
         for course in self.department.courses.all():
             total_lectures += course.number_of_lectures
+        return total_lectures
+    def num_tuts_in_week(self):
+        total_tutorials = 0
+        for course in self.department.courses.all():
             total_tutorials += course.number_of_tutorials
-        return total_lectures + total_tutorials
-    
+        return total_tutorials
     def num_labs_in_week(self):
         total_labs = 0
         for course in self.department.courses.all():
             total_labs += course.number_of_labs
         return total_labs
-
-    def is_valid_lab_start_time(self, meeting_time):
-        invalid_start_times = [2, 4]
-        return meeting_time.pid[-1] not in invalid_start_times
-    
-    def are_consecutive_meeting_times(self, mt1, mt2):
-        return mt1.pid[0] == mt2.pid[0] and abs(int(mt1.pid[-1]) - int(mt2.pid[-1])) == 1
 
 '''
 class Data(models.Manager):

@@ -18,6 +18,8 @@
         <tr class="table-headers">
           <th>Room No.</th>
           <th>Seating Capacity</th>
+          <th>Is Lab</th>
+          <th>Associated Courses</th>
           <th class="empty"></th>
         </tr>
       </thead>
@@ -27,6 +29,9 @@
         <tr>
           <td>{{rm.r_number}}</td>
           <td>{{rm.seating_capacity}}</td>
+          <td>{{rm.is_lab}}</td>
+          <td>{{rm.associated_courses}}</td>
+
           <td class="empty">
             <form action="{% url 'deleteroom' rm.id %}" method="post">
               {% csrf_token %}
